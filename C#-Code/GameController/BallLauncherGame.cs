@@ -16,5 +16,20 @@ namespace GameController
         {
             InitializeComponent();
         }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonConnect_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonStart_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
