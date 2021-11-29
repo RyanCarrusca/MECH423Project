@@ -41,7 +41,7 @@ namespace GameController
             this.textBoxPlayer1 = new System.Windows.Forms.TextBox();
             this.textBoxPlayer1Score = new System.Windows.Forms.TextBox();
             this.textBoxPlayer2Score = new System.Windows.Forms.TextBox();
-            this.player1Score = new System.Windows.Forms.Label();
+            this.labelPlayer1Score = new System.Windows.Forms.Label();
             this.labelPlayer2Score = new System.Windows.Forms.Label();
             this.serialPort1 = new System.IO.Ports.SerialPort(this.components);
             this.timer1 = new System.Windows.Forms.Timer(this.components);
@@ -49,10 +49,10 @@ namespace GameController
             this.label7 = new System.Windows.Forms.Label();
             this.label8 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
-            this.textBox1 = new System.Windows.Forms.TextBox();
-            this.textBox2 = new System.Windows.Forms.TextBox();
-            this.comboBox1 = new System.Windows.Forms.ComboBox();
-            this.buttonConnect = new System.Windows.Forms.Button();
+            this.textBoxSerialDataStream = new System.Windows.Forms.TextBox();
+            this.textBoxOutput = new System.Windows.Forms.TextBox();
+            this.comboBoxCOMPorts = new System.Windows.Forms.ComboBox();
+            this.buttonConnectSerial = new System.Windows.Forms.Button();
             this.buttonStart = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
@@ -149,14 +149,14 @@ namespace GameController
             this.textBoxPlayer2Score.Size = new System.Drawing.Size(100, 22);
             this.textBoxPlayer2Score.TabIndex = 10;
             // 
-            // player1Score
+            // labelPlayer1Score
             // 
-            this.player1Score.AutoSize = true;
-            this.player1Score.Location = new System.Drawing.Point(17, 231);
-            this.player1Score.Name = "player1Score";
-            this.player1Score.Size = new System.Drawing.Size(109, 17);
-            this.player1Score.TabIndex = 11;
-            this.player1Score.Text = "Player 1 Score: ";
+            this.labelPlayer1Score.AutoSize = true;
+            this.labelPlayer1Score.Location = new System.Drawing.Point(17, 231);
+            this.labelPlayer1Score.Name = "labelPlayer1Score";
+            this.labelPlayer1Score.Size = new System.Drawing.Size(109, 17);
+            this.labelPlayer1Score.TabIndex = 11;
+            this.labelPlayer1Score.Text = "Player 1 Score: ";
             // 
             // labelPlayer2Score
             // 
@@ -166,6 +166,10 @@ namespace GameController
             this.labelPlayer2Score.Size = new System.Drawing.Size(109, 17);
             this.labelPlayer2Score.TabIndex = 12;
             this.labelPlayer2Score.Text = "Player 2 Score: ";
+            // 
+            // serialPort1
+            // 
+            this.serialPort1.DataReceived += new System.IO.Ports.SerialDataReceivedEventHandler(this.serialPort1_DataReceived);
             // 
             // timer1
             // 
@@ -208,38 +212,39 @@ namespace GameController
             this.label9.TabIndex = 16;
             this.label9.Text = "Input:";
             // 
-            // textBox1
+            // textBoxSerialDataStream
             // 
-            this.textBox1.Location = new System.Drawing.Point(15, 416);
-            this.textBox1.Multiline = true;
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(277, 60);
-            this.textBox1.TabIndex = 17;
+            this.textBoxSerialDataStream.Location = new System.Drawing.Point(15, 416);
+            this.textBoxSerialDataStream.Multiline = true;
+            this.textBoxSerialDataStream.Name = "textBoxSerialDataStream";
+            this.textBoxSerialDataStream.Size = new System.Drawing.Size(277, 60);
+            this.textBoxSerialDataStream.TabIndex = 17;
             // 
-            // textBox2
+            // textBoxOutput
             // 
-            this.textBox2.Location = new System.Drawing.Point(74, 369);
-            this.textBox2.Name = "textBox2";
-            this.textBox2.Size = new System.Drawing.Size(218, 22);
-            this.textBox2.TabIndex = 18;
+            this.textBoxOutput.Location = new System.Drawing.Point(74, 369);
+            this.textBoxOutput.Name = "textBoxOutput";
+            this.textBoxOutput.Size = new System.Drawing.Size(218, 22);
+            this.textBoxOutput.TabIndex = 18;
             // 
-            // comboBox1
+            // comboBoxCOMPorts
             // 
-            this.comboBox1.FormattingEnabled = true;
-            this.comboBox1.Location = new System.Drawing.Point(96, 337);
-            this.comboBox1.Name = "comboBox1";
-            this.comboBox1.Size = new System.Drawing.Size(96, 24);
-            this.comboBox1.TabIndex = 19;
+            this.comboBoxCOMPorts.FormattingEnabled = true;
+            this.comboBoxCOMPorts.Location = new System.Drawing.Point(96, 337);
+            this.comboBoxCOMPorts.Name = "comboBoxCOMPorts";
+            this.comboBoxCOMPorts.Size = new System.Drawing.Size(96, 24);
+            this.comboBoxCOMPorts.TabIndex = 19;
+            this.comboBoxCOMPorts.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
             // 
-            // buttonConnect
+            // buttonConnectSerial
             // 
-            this.buttonConnect.Location = new System.Drawing.Point(203, 338);
-            this.buttonConnect.Name = "buttonConnect";
-            this.buttonConnect.Size = new System.Drawing.Size(89, 23);
-            this.buttonConnect.TabIndex = 20;
-            this.buttonConnect.Text = "Connect";
-            this.buttonConnect.UseVisualStyleBackColor = true;
-            this.buttonConnect.Click += new System.EventHandler(this.buttonConnect_Click);
+            this.buttonConnectSerial.Location = new System.Drawing.Point(203, 338);
+            this.buttonConnectSerial.Name = "buttonConnectSerial";
+            this.buttonConnectSerial.Size = new System.Drawing.Size(89, 23);
+            this.buttonConnectSerial.TabIndex = 20;
+            this.buttonConnectSerial.Text = "Connect";
+            this.buttonConnectSerial.UseVisualStyleBackColor = true;
+            this.buttonConnectSerial.Click += new System.EventHandler(this.buttonConnect_Click);
             // 
             // buttonStart
             // 
@@ -257,16 +262,16 @@ namespace GameController
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(304, 488);
             this.Controls.Add(this.buttonStart);
-            this.Controls.Add(this.buttonConnect);
-            this.Controls.Add(this.comboBox1);
-            this.Controls.Add(this.textBox2);
-            this.Controls.Add(this.textBox1);
+            this.Controls.Add(this.buttonConnectSerial);
+            this.Controls.Add(this.comboBoxCOMPorts);
+            this.Controls.Add(this.textBoxOutput);
+            this.Controls.Add(this.textBoxSerialDataStream);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.label8);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.label6);
             this.Controls.Add(this.labelPlayer2Score);
-            this.Controls.Add(this.player1Score);
+            this.Controls.Add(this.labelPlayer1Score);
             this.Controls.Add(this.textBoxPlayer2Score);
             this.Controls.Add(this.textBoxPlayer1Score);
             this.Controls.Add(this.textBoxPlayer1);
@@ -298,7 +303,7 @@ namespace GameController
         private System.Windows.Forms.TextBox textBoxPlayer1;
         private System.Windows.Forms.TextBox textBoxPlayer1Score;
         private System.Windows.Forms.TextBox textBoxPlayer2Score;
-        private System.Windows.Forms.Label player1Score;
+        private System.Windows.Forms.Label labelPlayer1Score;
         private System.Windows.Forms.Label labelPlayer2Score;
         private System.IO.Ports.SerialPort serialPort1;
         private System.Windows.Forms.Timer timer1;
@@ -306,10 +311,10 @@ namespace GameController
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Label label9;
-        private System.Windows.Forms.TextBox textBox1;
-        private System.Windows.Forms.TextBox textBox2;
-        private System.Windows.Forms.ComboBox comboBox1;
-        private System.Windows.Forms.Button buttonConnect;
+        private System.Windows.Forms.TextBox textBoxSerialDataStream;
+        private System.Windows.Forms.TextBox textBoxOutput;
+        private System.Windows.Forms.ComboBox comboBoxCOMPorts;
+        private System.Windows.Forms.Button buttonConnectSerial;
         private System.Windows.Forms.Button buttonStart;
     }
 }
