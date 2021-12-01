@@ -149,11 +149,17 @@ int main(void)
                 packet_flag = 0;
                 continue;
             }
-
             cmd = data[0];
             db1 = data[1];
             db2 = data[2];
             esc = data[3];
+
+            sendToUART(255);
+            sendToUART(cmd & BIT7);
+            sendToUART(db1);
+            sendToUART(db2);
+            sendToUART(esc);
+
             //if escape = 1, db2 = 255
             //if escape = 2, db1 = 255
             //if escape = 4, cmd = 255
@@ -235,7 +241,6 @@ __interrupt void USCI_A1_ISR(void)
 {
     unsigned char RxByte;
     RxByte = UCA1RXBUF;
-    sendToUART(RxByte);
 
     if(enqueue(&buf, RxByte))
     {
