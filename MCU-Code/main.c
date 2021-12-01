@@ -11,6 +11,8 @@ volatile unsigned char stepper_state = 0;
 volatile unsigned int stepper_dir = 0;
 volatile unsigned int stepper_timestep = 0x8000;
 
+volatile unsigned int commanded_stepper_position = 0; //in half-steps, 400 half-steps per rev
+volatile unsigned int actual_stepper_position = 0;
 
 /**
  * main.c
@@ -183,6 +185,20 @@ int main(void)
                 stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
                 stepper_dir = 1;
             }
+            if (cmd & BIT2)     //move to given position
+            {
+                commanded_stepper_position = dataword;
+                //0 to 359 degrees in standard position
+                if ((actual_stepper_position - commanded_stepper_position + 360) % 360 < 180)
+                {
+                    stepper_dir = 1; //CW
+                }
+                else
+                {
+                    stepper_dir = 0; //CCW
+                }
+            }
+            /*
             if (cmd & BIT2)     //single step, stops timer
             {
                 TA1CTL &= ~MC_2;
@@ -191,7 +207,7 @@ int main(void)
             if (cmd & BIT3)     //resume continuous
             {
                 TA1CTL |= MC_2;
-            }
+            }*/
             packet_flag = 0;
         }
     }
@@ -231,6 +247,32 @@ __interrupt void USCI_A1_ISR(void)
 #pragma vector = TIMER1_A0_VECTOR
 __interrupt void Timer_1A0 (void)
 {
+    if (commanded_stepper_position == actual_stepper_position)
+    {
+        return;
+    }
+    if (stepper_dir == 1)//CW
+    {
+        if (actual_stepper_position == 0)
+        {
+            actual_stepper_position = 359;
+        }
+        else
+        {
+            actual_stepper_position --;
+        }
+    }
+    else //stepper_dir = 0 -> CCW
+    {
+        if (actual_stepper_position == 359)
+        {
+            actual_stepper_position = 0;
+        }
+        else
+        {
+            actual_stepper_position++;
+        }
+    }
     TA1CCR0 += stepper_timestep;
     rotate_stepper(stepper_dir);
 }
