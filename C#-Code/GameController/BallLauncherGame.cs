@@ -16,18 +16,39 @@ namespace GameController
     public partial class BallLauncherGame : Form
     {
         bool open = false;
+        bool gameStarted = false;
+        bool generatedStartTime = false;
+        bool generatedAngleSpeed = false;
+        bool checkFlag = false;
+        bool launched = false;        
+        bool moved = false;
+        int echoReceived = 0;
+        int startTime;
+        int rotationAngle;
+        int speed;
+        int ticks = 0;
+        Random rand = new Random();
         int[] outputArray = new int[5];
         int[] inputArray = new int[5];
         ConcurrentQueue<Int32> dataQueue = new ConcurrentQueue<Int32>();
 
-        const int BIT0 = 1;
-        const int BIT1 = 2;
-        const int BIT2 = 4;
+        const int BIT0 = 1; //motor spin speed
+        const int BIT1 = 2; //stepper rotation angle
+        const int BIT2 = 4; //launch the ball
         const int BIT3 = 8;
         const int BIT4 = 16;
         const int BIT5 = 32;
         const int BIT6 = 64;
         const int BIT7 = 128;
+
+        const int SPINBIT = BIT0;
+        const int ANGLEBIT = BIT2;
+        const int LAUNCHBIT = BIT3;
+
+        const int MOVEDBIT = BIT2;
+
+        const int WAITTIME = 200;
+        
 
         public BallLauncherGame()
         {
@@ -44,8 +65,10 @@ namespace GameController
                 {
                     textBoxSerialDataStream.AppendText(Convert.ToString(outputData) + ", ");
                     if (outputData == 255) { i = 0; }
+                    //check this works as intended
                     if (i == 4)
                     {
+                        inputArray[i] = outputData;
                         processData();
                     }
                     else if (i > 4)
@@ -56,7 +79,50 @@ namespace GameController
                     i++;
                 }
             }
+
+            if (gameStarted == true)
+            {
+                //check if start time generated
+                if (!generatedStartTime)
+                {
+                    startTime = rand.Next(200);
+                    generatedStartTime = true;
+                }
+
+                if (moved)
+                {
+                    if ((ticks >= startTime) && !launched)
+                    {
+                        sendData(LAUNCHBIT, speed);
+                        launched = true;
+                    }
+
+                    if (ticks >= (startTime + WAITTIME))
+                    {
+                        generatedStartTime = false;
+                        generatedAngleSpeed = false;
+                        moved = false;
+                        launched = false;
+                    }
+                }
+
+                if (!generatedAngleSpeed)
+                {
+                    rotationAngle = rand.Next(360);
+                    speed = rand.Next(10000, 65535);
+                    generatedAngleSpeed = true;
+                }
+
+                if (generatedAngleSpeed)
+                {
+                    sendData(ANGLEBIT, rotationAngle);
+                    sendData(SPINBIT, speed);
+                }
+
+                ticks++;
+            }
         }
+
 
         private void processData()
         {
@@ -65,7 +131,6 @@ namespace GameController
             int dataBit1 = inputArray[2];
             int dataBit2 = inputArray[3];
             int escBit = inputArray[4];
-
 
             if ((escBit & BIT0) == 1)
             {
@@ -78,9 +143,42 @@ namespace GameController
 
             int data = (dataBit1 << 8) + dataBit2;
 
-            if ((commandBit & BIT0) != 1)
+            if ((commandBit & MOVEDBIT) == MOVEDBIT)
             {
-                data = data * -1;
+                moved = true;
+            }
+
+            //checks for echo
+            if (checkFlag)
+            {
+                echoProcess();
+                checkFlag = false;
+            }
+
+
+
+        }
+
+        private void echoProcess()
+        {
+            int i;
+            bool failed = false;
+            if (inputArray[0] != 255) { failed = true; }
+            if (inputArray[1] != (outputArray[1] |= BIT7)) { failed = true; }
+            for (i = 2; i < 4; i++)
+            {
+                if (inputArray[i] == outputArray[i])
+                {
+                    failed = true;
+                }
+            }
+            if (failed == true)
+            {
+                echoReceived = -1;
+            }
+            else
+            {
+                echoReceived = 1;
             }
         }
 
@@ -109,7 +207,7 @@ namespace GameController
 
         private void buttonStart_Click(object sender, EventArgs e)
         {
-            //game behaviour
+            //game initialization
 
             string player1Name = textBoxPlayer1.Text;
             string player2Name = textBoxPlayer2.Text;
@@ -129,12 +227,14 @@ namespace GameController
 
             textBoxPlayer1Score.Text = Convert.ToString(player1Score);
             textBoxPlayer2Score.Text = Convert.ToString(player2Score);
+
+            gameStarted = true;
         }
 
-        private void sendData(int dataByte)
+        private void sendData(int commandBit, int dataByte)
         {
-
-            outputArray[1] |= 1;
+            outputArray[0] = 255;
+            outputArray[1] = commandBit;
             outputArray[2] = (dataByte & 0xFF00) >> 8;
             outputArray[3] = (dataByte) & 0x00FF;
             outputArray[4] = 0; //esc bit
@@ -142,11 +242,14 @@ namespace GameController
             checkOutput(); //makes esc bit corrections
 
             textBoxOutput.Text = ""; //outputs to textbox and sends
-            for (int i = 0; i < 5; i++)
+            do
             {
-                textBoxOutput.AppendText(Convert.ToString(outputArray[i]) + ", ");
-                serialPort1.Write(new byte[] { Convert.ToByte(outputArray[i]) }, 0, 1);
-            }
+                for (int i = 0; i < 5; i++)
+                {
+                    textBoxOutput.AppendText(Convert.ToString(outputArray[i]) + ", ");
+                    serialPort1.Write(new byte[] { Convert.ToByte(outputArray[i]) }, 0, 1);
+                }
+            } while (checkForEcho());
 
         }
         private void checkOutput()
@@ -160,6 +263,20 @@ namespace GameController
             {
                 outputArray[4] |= 1;
                 outputArray[3] = 0;
+            }
+        }
+
+        private bool checkForEcho()
+        {
+            checkFlag = true;
+            while (echoReceived != 0) { }
+            if (echoReceived == 1)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
 
