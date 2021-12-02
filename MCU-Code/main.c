@@ -4,6 +4,7 @@
 
 queue buf;
 volatile int packet_flag = 0;
+volatile int timerUART_flag = 0;
 volatile unsigned int dataword = 0;
 volatile unsigned char cmd, db1, db2, esc;
 
@@ -119,6 +120,25 @@ int main(void)
     P3SEL1 &= ~(BIT4 + BIT5);
 
 
+    /////////////////
+    //Switch inputs//
+    /////////////////
+
+    P3DIR &= ~BIT0;
+
+    //Enable down resistor
+    P3REN |= BIT0;
+    P3OUT &= ~BIT0;
+
+    //Set P3.0 to get interrupted from a rising edge (i.e. an interrupt occurs when the user lets go of the button).
+    P3IES &= ~BIT0;
+    // Enable local and global interrupts.
+    P3IE |= BIT0;
+
+    //Configure PJ.2 as an output (this is connected via wire to LED4)
+    PJDIR |= BIT2;
+    PJSEL0 &= ~( BIT2);
+    PJSEL1 &= ~( BIT2);
 
     initializeBuffer(&buf);
     // global interrupt enable
@@ -126,100 +146,123 @@ int main(void)
 
     while(1)
     {
-        while(!packet_flag){}
+        while(!packet_flag && timerUART_flag){}
         //packet flag is now set - we have an item in the queue
 
-        unsigned char val = 0;
-        while (val != 255 && !dequeue(&buf,&val)); //dequeue until a start bit, or until queue is empty
 
-        if (buf.numItems == 0 && val != 255) //queue is empty and no start bit found, return to searching the queue
+        if (timerUART_flag)
         {
-            packet_flag = 0;
+            //send sensor data
+
+            timerUART_flag = 0;
             continue;
         }
-        else if (val == 255) //start bit found, we need 4 more bits from the queue
+        else if (packet_flag)
         {
-            int i;
-            unsigned char data[4];
-            for (i = 0; i < 4; i ++)
-            {
-                //will get stuck until data - should check num items in queue
-                while(dequeue(&buf, data + i )); //try dequeuing until we get data
-            }
-            if (i < 4) //not enough data in queue
+            unsigned char val = 0;
+            while (val != 255 && !dequeue(&buf,&val)); //dequeue until a start bit, or until queue is empty
+
+            if (buf.numItems == 0 && val != 255) //queue is empty and no start bit found, return to searching the queue
             {
                 packet_flag = 0;
                 continue;
             }
-            cmd = data[0];
-            db1 = data[1];
-            db2 = data[2];
-            esc = data[3];
-
-            sendToUART(255);
-            sendToUART(cmd & BIT7);
-            sendToUART(db1);
-            sendToUART(db2);
-            sendToUART(esc);
-
-            //if escape = 1, db2 = 255
-            //if escape = 2, db1 = 255
-            //if escape = 4, cmd = 255
-            cmd |= 255 * ( (esc & BIT2) >> 2);
-            db1 |= 255 * ( (esc & BIT1) >> 1);
-            db2 |= 255 * (esc & BIT0);
-
-            dataword = (db1 << 8) + db2;
-
-            if (cmd & BIT0)     // DC motor CCW
+            else if (val == 255) //start bit found, we need 4 more bits from the queue
             {
-                TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
-                P3OUT |= BIT6;
-                P3OUT &= ~BIT7;
-            }
-            else                //DC motor CW
-            {
-                TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
-                P3OUT &= ~BIT6;
-                P3OUT |= BIT7;
-            }
-            if (cmd & BIT1)     //stepper CCW
-            {
-                stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
-                stepper_dir = 0;
-            }
-            else                //stepper CW
-            {
-                stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
-                stepper_dir = 1;
-            }
-            if (cmd & BIT2)     //move to given position
-            {
-                commanded_stepper_position = dataword * CONVERT_DEG_TO_HALFSTEP;
-                //0 to 359 degrees in standard position
-                if ((actual_stepper_position - commanded_stepper_position + 400) % 400 < 200)
+                int i;
+                unsigned char data[4];
+                for (i = 0; i < 4; i ++)
                 {
-                    stepper_dir = 1; //CW
+                    //will get stuck until data - should check num items in queue
+                    while(dequeue(&buf, data + i )); //try dequeuing until we get data
                 }
-                else
+                if (i < 4) //not enough data in queue
                 {
-                    stepper_dir = 0; //CCW
+                    packet_flag = 0;
+                    continue;
                 }
+                cmd = data[0];
+                db1 = data[1];
+                db2 = data[2];
+                esc = data[3];
+
+                sendToUART(255);
+                sendToUART(cmd & BIT7);
+                sendToUART(db1);
+                sendToUART(db2);
+                sendToUART(esc);
+
+                //if escape = 1, db2 = 255
+                //if escape = 2, db1 = 255
+                //if escape = 4, cmd = 255
+                cmd |= 255 * ( (esc & BIT2) >> 2);
+                db1 |= 255 * ( (esc & BIT1) >> 1);
+                db2 |= 255 * (esc & BIT0);
+
+                dataword = (db1 << 8) + db2;
+
+                if (cmd & BIT0)     // DC motor CCW
+                {
+                    TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
+                    P3OUT |= BIT6;
+                    P3OUT &= ~BIT7;
+                }
+                else                //DC motor CW
+                {
+                    TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
+                    P3OUT &= ~BIT6;
+                    P3OUT |= BIT7;
+                }
+                if (cmd & BIT1)     //stepper CCW
+                {
+                    stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
+                    stepper_dir = 0;
+                }
+                else                //stepper CW
+                {
+                    stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
+                    stepper_dir = 1;
+                }
+                if (cmd & BIT2)     //move to given position
+                {
+                    commanded_stepper_position = dataword * CONVERT_DEG_TO_HALFSTEP;
+                    //0 to 359 degrees in standard position
+                    if ((actual_stepper_position - commanded_stepper_position + 400) % 400 < 200)
+                    {
+                        stepper_dir = 1; //CW
+                    }
+                    else
+                    {
+                        stepper_dir = 0; //CCW
+                    }
+                }
+                /*
+                if (cmd & BIT2)     //single step, stops timer
+                {
+                    TA1CTL &= ~MC_2;
+                    rotate_stepper(stepper_dir);
+                }
+                if (cmd & BIT3)     //resume continuous
+                {
+                    TA1CTL |= MC_2;
+                }*/
+                packet_flag = 0;
             }
-            /*
-            if (cmd & BIT2)     //single step, stops timer
-            {
-                TA1CTL &= ~MC_2;
-                rotate_stepper(stepper_dir);
-            }
-            if (cmd & BIT3)     //resume continuous
-            {
-                TA1CTL |= MC_2;
-            }*/
-            packet_flag = 0;
+            continue;
         }
     }
 }
+
+
+//interrupt service routine to toggle LED8 when P3.0 provides a rising edge.
+#pragma vector = PORT3_VECTOR
+__interrupt void S1_interrupt (void)
+{
+    //check which ifg was raised P3IV
+    PJOUT ^= BIT2;
+    P3IFG &= ~BIT0;
+}
+
 
 
 void sendToUART(unsigned char byte)
@@ -254,6 +297,7 @@ __interrupt void USCI_A1_ISR(void)
 #pragma vector = TIMER1_A0_VECTOR
 __interrupt void Timer_1A0 (void)
 {
+    timerUART_flag = 1;
     if (commanded_stepper_position == actual_stepper_position)
     {
         return;
