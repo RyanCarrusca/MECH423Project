@@ -16,21 +16,21 @@ namespace GameController
     public partial class BallLauncherGame : Form
     {
         bool open = false;
-        bool gameStarted = false;
-        bool generatedStartTime = false;
-        bool generatedAngleSpeed = false;
         bool checkFlag = false;
-        bool launched = false;        
         bool moved = false;
-        int echoReceived = 0;
+        bool handsOn = false;
+        bool gameStarted = false;
+        int state = 0;
         int startTime;
         int rotationAngle;
         int speed;
         int ticks = 0;
+        int echoTicks = 0;
         Random rand = new Random();
         int[] outputArray = new int[5];
         int[] inputArray = new int[5];
         ConcurrentQueue<Int32> dataQueue = new ConcurrentQueue<Int32>();
+        ConcurrentQueue<Int32> outputQueue = new ConcurrentQueue<Int32>();
 
         const int BIT0 = 1; //motor spin speed
         const int BIT1 = 2; //stepper rotation angle
@@ -46,6 +46,9 @@ namespace GameController
         const int LAUNCHBIT = BIT3;
 
         const int MOVEDBIT = BIT2;
+        const int HANDSONBIT = BIT3;
+        const int HANDSOFFBIT = BIT4;
+        const int STOPGAMEBIT = BIT5;
 
         const int WAITTIME = 200;
         
@@ -82,43 +85,36 @@ namespace GameController
 
             if (gameStarted == true)
             {
-                //check if start time generated
-                if (!generatedStartTime)
+                switch (state)
                 {
-                    startTime = rand.Next(200);
-                    generatedStartTime = true;
-                }
-
-                if (moved)
-                {
-                    if ((ticks >= startTime) && !launched)
-                    {
-                        sendData(LAUNCHBIT, speed);
-                        launched = true;
-                    }
-
-                    if (ticks >= (startTime + WAITTIME))
-                    {
-                        generatedStartTime = false;
-                        generatedAngleSpeed = false;
+                    case 0:
                         moved = false;
-                        launched = false;
-                    }
+                        startTime = rand.Next(200);
+                        state = 1;
+                        break;
+                    case 1:
+                        rotationAngle = rand.Next(360);
+                        speed = rand.Next(10000, 65535);
+                        //something here to make sure sent
+                        sendData(ANGLEBIT, rotationAngle);
+                        sendData(SPINBIT, speed);
+                        state = 2;
+                        break;
+                    case 2:
+                        if (moved) 
+                        {
+                            ticks = 0;
+                            state = 3; 
+                        }
+                        break;
+                    case 3:
+                        if ((ticks > startTime) && handsOn)
+                        {
+                            sendData(LAUNCHBIT, speed);
+                        }
+                        state = 0;
+                        break;
                 }
-
-                if (!generatedAngleSpeed)
-                {
-                    rotationAngle = rand.Next(360);
-                    speed = rand.Next(10000, 65535);
-                    generatedAngleSpeed = true;
-                }
-
-                if (generatedAngleSpeed)
-                {
-                    sendData(ANGLEBIT, rotationAngle);
-                    sendData(SPINBIT, speed);
-                }
-
                 ticks++;
             }
         }
@@ -126,43 +122,40 @@ namespace GameController
 
         private void processData()
         {
-            int startBit = inputArray[0];
             int commandBit = inputArray[1];
-            int dataBit1 = inputArray[2];
-            int dataBit2 = inputArray[3];
-            int escBit = inputArray[4];
-
-            if ((escBit & BIT0) == 1)
-            {
-                dataBit1 = 255;
-            }
-            if ((escBit & BIT1) == 1)
-            {
-                dataBit2 = 255;
-            }
-
-            int data = (dataBit1 << 8) + dataBit2;
 
             if ((commandBit & MOVEDBIT) == MOVEDBIT)
             {
                 moved = true;
             }
 
-            //checks for echo
+            if ((commandBit & HANDSONBIT) == HANDSONBIT)
+            {
+                handsOn = true;
+            }
+
+            if ((commandBit & HANDSOFFBIT) == HANDSOFFBIT)
+            {
+                handsOn = false ;
+            }
+
+            if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
+            {
+                gameStarted = false;
+            }
+
             if (checkFlag)
             {
                 echoProcess();
-                checkFlag = false;
             }
-
-
-
         }
 
         private void echoProcess()
         {
             int i;
             bool failed = false;
+            int outputData;
+            int garbage;
             if (inputArray[0] != 255) { failed = true; }
             if (inputArray[1] != (outputArray[1] |= BIT7)) { failed = true; }
             for (i = 2; i < 4; i++)
@@ -172,15 +165,22 @@ namespace GameController
                     failed = true;
                 }
             }
-            if (failed == true)
+
+            if (!failed)
             {
-                echoReceived = -1;
+                checkFlag = false;
+                outputQueue.TryDequeue(out garbage);
+                outputQueue.TryDequeue(out garbage);
             }
-            else
+            else if (echoTicks > 10)
             {
-                echoReceived = 1;
+                for (i)
+                outputQueue.TryDequeue(out outputData);
+
             }
         }
+
+
 
         private void buttonConnect_Click(object sender, EventArgs e)
         {
@@ -233,6 +233,7 @@ namespace GameController
 
         private void sendData(int commandBit, int dataByte)
         {
+            //flag to return false while waiting for echo
             outputArray[0] = 255;
             outputArray[1] = commandBit;
             outputArray[2] = (dataByte & 0xFF00) >> 8;
@@ -242,16 +243,18 @@ namespace GameController
             checkOutput(); //makes esc bit corrections
 
             textBoxOutput.Text = ""; //outputs to textbox and sends
-            do
+
+            for (int i = 0; i < 5; i++)
             {
-                for (int i = 0; i < 5; i++)
-                {
-                    textBoxOutput.AppendText(Convert.ToString(outputArray[i]) + ", ");
-                    serialPort1.Write(new byte[] { Convert.ToByte(outputArray[i]) }, 0, 1);
-                }
-            } while (checkForEcho());
+                textBoxOutput.AppendText(Convert.ToString(outputArray[i]) + ", ");
+                serialPort1.Write(new byte[] { Convert.ToByte(outputArray[i]) }, 0, 1);
+            }
+
+            outputQueue.Enqueue(commandBit);
+            outputQueue.Enqueue(dataByte);
 
         }
+
         private void checkOutput()
         {
             if (outputArray[2] == 255) //checks if 255 and compensates in esc bit
@@ -263,20 +266,6 @@ namespace GameController
             {
                 outputArray[4] |= 1;
                 outputArray[3] = 0;
-            }
-        }
-
-        private bool checkForEcho()
-        {
-            checkFlag = true;
-            while (echoReceived != 0) { }
-            if (echoReceived == 1)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
             }
         }
 
