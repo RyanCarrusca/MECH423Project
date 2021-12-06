@@ -14,6 +14,8 @@ volatile unsigned int stepper_timestep = 0x8000;
 volatile unsigned int commanded_stepper_position = 0; //in half-steps, 400 half-steps per rev
 volatile unsigned int actual_stepper_position = 0;
 
+const double CONVERT_DEG_TO_HALFSTEP = 400.0/360.0;
+
 /**
  * main.c
  */
@@ -193,9 +195,9 @@ int main(void)
             }
             if (cmd & BIT2)     //move to given position
             {
-                commanded_stepper_position = dataword;
+                commanded_stepper_position = dataword * CONVERT_DEG_TO_HALFSTEP;
                 //0 to 359 degrees in standard position
-                if ((actual_stepper_position - commanded_stepper_position + 360) % 360 < 180)
+                if ((actual_stepper_position - commanded_stepper_position + 400) % 400 < 200)
                 {
                     stepper_dir = 1; //CW
                 }
@@ -260,7 +262,7 @@ __interrupt void Timer_1A0 (void)
     {
         if (actual_stepper_position == 0)
         {
-            actual_stepper_position = 359;
+            actual_stepper_position = 399;
         }
         else
         {
@@ -269,7 +271,7 @@ __interrupt void Timer_1A0 (void)
     }
     else //stepper_dir = 0 -> CCW
     {
-        if (actual_stepper_position == 359)
+        if (actual_stepper_position == 399)
         {
             actual_stepper_position = 0;
         }
