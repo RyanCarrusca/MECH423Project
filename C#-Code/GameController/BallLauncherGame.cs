@@ -26,6 +26,8 @@ namespace GameController
         int speed;
         int ticks = 0;
         int echoTicks = 0;
+        string difficultyInput;
+        int difficulty;
         Random rand = new Random();
         int[] outputArray = new int[5];
         int[] inputArray = new int[5];
@@ -95,7 +97,6 @@ namespace GameController
                     case 1:
                         rotationAngle = rand.Next(360);
                         speed = rand.Next(10000, 65535);
-                        //something here to make sure sent
                         sendData(ANGLEBIT, rotationAngle);
                         sendData(SPINBIT, speed);
                         state = 2;
@@ -144,10 +145,10 @@ namespace GameController
                 gameStarted = false;
             }
 
-            if (checkFlag)
-            {
-                echoProcess();
-            }
+            //if (checkFlag)
+            //{
+                //echoProcess();
+            //}
         }
 
         private void echoProcess()
@@ -174,9 +175,8 @@ namespace GameController
             }
             else if (echoTicks > 10)
             {
-                for (i)
+                //for (i)
                 outputQueue.TryDequeue(out outputData);
-
             }
         }
 
@@ -229,6 +229,23 @@ namespace GameController
             textBoxPlayer2Score.Text = Convert.ToString(player2Score);
 
             gameStarted = true;
+
+            difficultyInput = comboBoxDifficulty.Text;
+
+            switch (difficultyInput)
+            {
+                case ("Easy"):
+                    difficulty = 1;
+                    break;
+                case ("Medium"):
+                    difficulty = 2;
+                    break;
+                case ("Hard"):
+                    difficulty = 3;
+                    break;
+            }
+
+
         }
 
         private void sendData(int commandBit, int dataByte)
