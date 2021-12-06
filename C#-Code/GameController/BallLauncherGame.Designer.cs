@@ -285,6 +285,7 @@ namespace GameController
             this.Controls.Add(this.label1);
             this.Name = "BallLauncherGame";
             this.Text = "Ball Launcher Game";
+            this.Load += new System.EventHandler(this.BallLauncherGame_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 

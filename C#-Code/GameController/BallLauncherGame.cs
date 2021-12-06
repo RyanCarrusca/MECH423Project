@@ -303,5 +303,18 @@ namespace GameController
         {
             serialPort1.PortName = comboBoxCOMPorts.Text;
         }
+
+        private void BallLauncherGame_Load(object sender, EventArgs e)
+        {
+
+            comboBoxCOMPorts.Items.Clear();
+            comboBoxCOMPorts.Items.AddRange(System.IO.Ports.SerialPort.GetPortNames());
+            if (comboBoxCOMPorts.Items.Count == 0)
+                comboBoxCOMPorts.Text = "No COM ports!";
+            else
+                comboBoxCOMPorts.SelectedIndex = 0;
+            timer1.Start();
+
+        }
     }
 }
