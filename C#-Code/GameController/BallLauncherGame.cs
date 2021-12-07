@@ -43,14 +43,26 @@ namespace GameController
         const int BIT6 = 64;
         const int BIT7 = 128;
 
-        const int SPINBIT = BIT0;
-        const int ANGLEBIT = BIT2;
-        const int LAUNCHBIT = BIT3;
+        const int DC_SPIN_SPEED = BIT0;
+        const int SET_ANGLE = BIT2;
+        const int LAUNCH = BIT3;
 
-        const int MOVEDBIT = BIT2;
-        const int HANDSONBIT = BIT3;
-        const int HANDSOFFBIT = BIT4;
+
+        const int SPIN_MOVED_DONE = BIT4;
+        const int SENSOR_DATA = BIT5;
+
+        //const int HANDSONBIT = BIT3;
+        //const int HANDSOFFBIT = BIT4;
         const int STOPGAMEBIT = BIT5;
+
+        const int HANDS_P1 = BIT0;
+        const int HANDS_P2 = BIT1;
+
+        const int LIMITSWITCH_P1 = BIT2;
+        const int LIMITSWITCH_P2 = BIT3;
+
+        const int STARTBUTTON = BIT4;
+
 
         const int WAITTIME = 200;
         
@@ -89,29 +101,29 @@ namespace GameController
             {
                 switch (state)
                 {
-                    case 0:
+                    case 0: //waiting for start
                         moved = false;
                         startTime = rand.Next(200);
                         state = 1;
                         break;
-                    case 1:
+                    case 1: //set up
                         rotationAngle = rand.Next(360);
                         speed = rand.Next(10000, 65535);
-                        sendData(ANGLEBIT, rotationAngle);
-                        sendData(SPINBIT, speed);
+                        sendData(SET_ANGLE, rotationAngle);
+                        sendData(DC_SPIN_SPEED, speed);
                         state = 2;
                         break;
-                    case 2:
+                    case 2: //done moving
                         if (moved) 
                         {
                             ticks = 0;
                             state = 3; 
                         }
                         break;
-                    case 3:
+                    case 3: //launch 
                         if ((ticks > startTime) && handsOn)
                         {
-                            sendData(LAUNCHBIT, speed);
+                            sendData(LAUNCH, speed);
                         }
                         state = 0;
                         break;
@@ -125,20 +137,64 @@ namespace GameController
         {
             int commandBit = inputArray[1];
 
-            if ((commandBit & MOVEDBIT) == MOVEDBIT)
+            if ((commandBit & SPIN_MOVED_DONE) == SPIN_MOVED_DONE)
             {
                 moved = true;
             }
 
-            if ((commandBit & HANDSONBIT) == HANDSONBIT)
+            if ((commandBit & SENSOR_DATA) == SENSOR_DATA)
             {
-                handsOn = true;
-            }
+                int data = inputArray[2];
 
-            if ((commandBit & HANDSOFFBIT) == HANDSOFFBIT)
-            {
-                handsOn = false ;
+
+                bool hands1 = false;
+                bool hands2 = false;
+                if ((data & HANDS_P1) == HANDS_P1)
+                {
+                    hands1 = true;
+                    indicatorHands.BackColor = Color.Green;
+                }
+                else
+                {
+                    indicatorHands.BackColor = Color.Red;
+                }
+                if ((data & HANDS_P2) == HANDS_P2)
+                {
+                    hands2 = true;
+                    indicatorHands2.BackColor = Color.Green;
+                }
+                else
+                {
+                    indicatorHands2.BackColor = Color.Red;
+                }
+                handsOn = hands1 && hands2;
+
+                indicatorLS1.BackColor = Color.Red;
+                indicatorLS2.BackColor = Color.Red;
+                if ((data & LIMITSWITCH_P1) != LIMITSWITCH_P1) //Limit switches are normally closed, & open when touched
+                {
+                    indicatorLS1.BackColor = Color.Green;
+                    //player 1 ball not entered
+                }
+                if ((data & LIMITSWITCH_P2) == LIMITSWITCH_P2)
+                {
+                    indicatorLS2.BackColor = Color.Green;
+                    //player 2 ball entered
+                }
+                if ((data & STARTBUTTON) == STARTBUTTON)
+                {
+                    //game started
+                }
             }
+            //if ((commandBit & HANDSONBIT) == HANDSONBIT)
+            //{
+            //    handsOn = true;
+            //}
+            //
+            //if ((commandBit & HANDSOFFBIT) == HANDSOFFBIT)
+            //{
+            //    handsOn = false ;
+            //}
 
             if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
             {

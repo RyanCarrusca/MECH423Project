@@ -124,17 +124,21 @@ int main(void)
     //Switch inputs//
     /////////////////
 
-    P3DIR &= ~BIT0;
+    P3DIR &= ~(BIT0 + BIT1 + BIT2 + BIT3);
+    //inputs hands_p1, hands_p2, LS_p1, LS_p2
 
-    //Enable down resistor
-    P3REN |= BIT0;
-    P3OUT &= ~BIT0;
 
+    //Enable pulldown resistor - switches to be placed btwn VCC & input pin
+    P3REN |= (BIT0 + BIT1 + BIT2 + BIT3);
+    P3OUT &= ~(BIT0 + BIT1 + BIT2 + BIT3);
+
+
+    /*
     //Set P3.0 to get interrupted from a rising edge (i.e. an interrupt occurs when the user lets go of the button).
     P3IES &= ~BIT0;
     // Enable local and global interrupts.
     P3IE |= BIT0;
-
+    */
     //Configure PJ.2 as an output (this is connected via wire to LED4)
     PJDIR |= BIT2;
     PJSEL0 &= ~( BIT2);
@@ -146,13 +150,21 @@ int main(void)
 
     while(1)
     {
-        while(!packet_flag && timerUART_flag){}
+        while(!packet_flag && !timerUART_flag){}
         //packet flag is now set - we have an item in the queue
 
 
         if (timerUART_flag)
         {
-            //send sensor data
+            unsigned char data[5];
+
+            data[0] = 255;
+            data[1] = BIT5; //sensor data bit
+            data[2] = P3IN; //hands_p1, hands_p2, limswitch_1, limswitch_2
+            //hands are a bit glitchy through the AND
+            data[3] = 0;
+            data[4] = 0;
+            sendArrToUART(data,5);
 
             timerUART_flag = 0;
             continue;
@@ -253,7 +265,7 @@ int main(void)
     }
 }
 
-
+/*
 //interrupt service routine to toggle LED8 when P3.0 provides a rising edge.
 #pragma vector = PORT3_VECTOR
 __interrupt void S1_interrupt (void)
@@ -261,7 +273,7 @@ __interrupt void S1_interrupt (void)
     //check which ifg was raised P3IV
     PJOUT ^= BIT2;
     P3IFG &= ~BIT0;
-}
+}*/
 
 
 
@@ -270,6 +282,16 @@ void sendToUART(unsigned char byte)
     while ((UCA1IFG & UCTXIFG)==0);
     UCA1TXBUF = byte;
 }
+
+void sendArrToUART(unsigned char data[], unsigned int size)
+{
+    int i;
+    for (i=0; i<size; i++)
+    {
+        sendToUART(data[i]);
+    }
+}
+
 
 void sendUARTerror()
 {

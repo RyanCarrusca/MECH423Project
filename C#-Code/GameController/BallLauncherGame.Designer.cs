@@ -54,6 +54,10 @@ namespace GameController
             this.comboBoxCOMPorts = new System.Windows.Forms.ComboBox();
             this.buttonConnectSerial = new System.Windows.Forms.Button();
             this.buttonStart = new System.Windows.Forms.Button();
+            this.indicatorHands = new System.Windows.Forms.Button();
+            this.indicatorLS1 = new System.Windows.Forms.Button();
+            this.indicatorLS2 = new System.Windows.Forms.Button();
+            this.indicatorHands2 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // label1
@@ -256,11 +260,51 @@ namespace GameController
             this.buttonStart.UseVisualStyleBackColor = true;
             this.buttonStart.Click += new System.EventHandler(this.buttonStart_Click);
             // 
+            // indicatorHands
+            // 
+            this.indicatorHands.Location = new System.Drawing.Point(16, 486);
+            this.indicatorHands.Name = "indicatorHands";
+            this.indicatorHands.Size = new System.Drawing.Size(74, 26);
+            this.indicatorHands.TabIndex = 22;
+            this.indicatorHands.Text = "Hands";
+            this.indicatorHands.UseVisualStyleBackColor = true;
+            // 
+            // indicatorLS1
+            // 
+            this.indicatorLS1.Location = new System.Drawing.Point(96, 486);
+            this.indicatorLS1.Name = "indicatorLS1";
+            this.indicatorLS1.Size = new System.Drawing.Size(48, 26);
+            this.indicatorLS1.TabIndex = 23;
+            this.indicatorLS1.Text = "LS1";
+            this.indicatorLS1.UseVisualStyleBackColor = true;
+            // 
+            // indicatorLS2
+            // 
+            this.indicatorLS2.Location = new System.Drawing.Point(157, 486);
+            this.indicatorLS2.Name = "indicatorLS2";
+            this.indicatorLS2.Size = new System.Drawing.Size(48, 26);
+            this.indicatorLS2.TabIndex = 24;
+            this.indicatorLS2.Text = "LS2";
+            this.indicatorLS2.UseVisualStyleBackColor = true;
+            // 
+            // indicatorHands2
+            // 
+            this.indicatorHands2.Location = new System.Drawing.Point(218, 486);
+            this.indicatorHands2.Name = "indicatorHands2";
+            this.indicatorHands2.Size = new System.Drawing.Size(74, 26);
+            this.indicatorHands2.TabIndex = 25;
+            this.indicatorHands2.Text = "Hands";
+            this.indicatorHands2.UseVisualStyleBackColor = true;
+            // 
             // BallLauncherGame
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(304, 488);
+            this.ClientSize = new System.Drawing.Size(304, 524);
+            this.Controls.Add(this.indicatorHands2);
+            this.Controls.Add(this.indicatorLS2);
+            this.Controls.Add(this.indicatorLS1);
+            this.Controls.Add(this.indicatorHands);
             this.Controls.Add(this.buttonStart);
             this.Controls.Add(this.buttonConnectSerial);
             this.Controls.Add(this.comboBoxCOMPorts);
@@ -317,6 +361,10 @@ namespace GameController
         private System.Windows.Forms.ComboBox comboBoxCOMPorts;
         private System.Windows.Forms.Button buttonConnectSerial;
         private System.Windows.Forms.Button buttonStart;
+        private System.Windows.Forms.Button indicatorHands;
+        private System.Windows.Forms.Button indicatorLS1;
+        private System.Windows.Forms.Button indicatorLS2;
+        private System.Windows.Forms.Button indicatorHands2;
     }
 }
 
