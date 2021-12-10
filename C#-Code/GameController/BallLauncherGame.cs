@@ -19,7 +19,7 @@ namespace GameController
         bool checkFlag = false;
         bool moved = false;
         bool handsOn = false;
-        bool gameStarted = false;
+        volatile bool gameStarted = false;
         int state = 0;
         int startTime;
         int rotationAngle;
@@ -48,17 +48,19 @@ namespace GameController
         const int LAUNCH = BIT3;
         const int SERVO_LAUNCH_POS = 0x0;
         const int SERVO_RESET_POS = 0xDFFF;
+        const int SERVO_RECV_MCU = BIT5;
 
         const int DC_STARTUP = BIT4;
         const int DC_ON = 0x9000;
         const int DC_OFF = 0x6969;
 
         const int SENSOR_DATA = BIT5;
-        const int SPIN_MOVED_DONE = BIT6;
+        const int SPIN_MOVED_DONE = BIT4;
+        bool servoLaunched = false;
 
         //const int HANDSONBIT = BIT3;
         //const int HANDSOFFBIT = BIT4;
-        const int STOPGAMEBIT = BIT5;
+        //const int STOPGAMEBIT = BIT7;
 
         const int HANDS_P1 = BIT0;
         const int HANDS_P2 = BIT1;
@@ -86,6 +88,71 @@ namespace GameController
         {
             textBoxState.Text = Convert.ToString(state);
 
+            if (gameStarted)
+            {
+                textBoxPlayer1Score.Text = Convert.ToString(player1Score);
+                textBoxPlayer2Score.Text = Convert.ToString(player2Score);
+
+                switch (state)
+                {
+                    case 0: //waiting for start
+                        moved = false;
+                        startTime = rand.Next(30);
+                        state = 1;
+                        break;
+                    case 1: //set up
+                        rotationAngle = (rand.Next(60) - 30 + 360 )% 360; //Angle between -30 and 30
+                        sendData(SET_ANGLE, rotationAngle);
+                        sendData(DC_STARTUP, DC_ON);
+                        state = 2;
+                        break;
+                    case 2: //done moving
+                        if (moved)
+                        {
+                            ticks = 0;
+                            state = 3;
+                        }
+                        break;
+                    case 3: //launch 
+                        if (!handsOn)
+                        {
+                            ticks = 0;
+                        }
+                        if ((ticks > startTime) && handsOn)
+                        {
+                            LaunchServo();
+                            ticks = 0;
+                            state = 4;
+                        }
+
+                        break;
+                    case 4:
+                        if (ticks > 2) //800 ms - reset the servo
+                        {
+                            ResetServo();
+                        }
+
+                        if (ticks > 30 && !servoLaunched) //give it some time to reset first, then retry
+                        {
+                            state = 3;
+                        }
+                        if (ticks > 8 && servoLaunched)
+                        {
+                            state = 0;
+                            servoLaunched = false;
+                        }
+                        break;
+                    case 5: //end game
+                        sendData(DC_STARTUP, DC_OFF);
+                        break;
+
+                }
+                ticks++;
+            }
+        }
+
+        private void timer2_Tick(object sender, EventArgs e)
+        {
             int outputData;
             int i = 0;
             if (serialPort1.IsOpen)
@@ -108,58 +175,16 @@ namespace GameController
                     i++;
                 }
             }
-
-            if (gameStarted == true)
-            {
-                textBoxPlayer1Score.Text = Convert.ToString(player1Score);
-                textBoxPlayer2Score.Text = Convert.ToString(player2Score);
-
-                switch (state)
-                {
-                    case 0: //waiting for start
-                        moved = false;
-                        startTime = rand.Next(1000);
-                        state = 1;
-                        break;
-                    case 1: //set up
-                        rotationAngle = (rand.Next(60) - 30 + 360 )% 360; //Angle between -30 and 30
-                        sendData(SET_ANGLE, rotationAngle);
-                        sendData(DC_STARTUP, DC_ON);
-                        state = 2;
-                        break;
-                    case 2: //done moving
-                        if (moved)
-                        {
-                            ticks = 0;
-                            state = 3;
-                        }
-                        break;
-                    case 3: //launch 
-                        if ((ticks > startTime) && handsOn)
-                        {
-                            LaunchAndResetServo();
-                        }
-                        ticks = 0;
-                        state = 0;
-                        break;
-                    case 4: //end game
-                        sendData(DC_STARTUP, DC_OFF);
-                        break;
-
-                }
-                ticks++;
-            }
         }
-
 
         private void processData()
         {
             int commandBit = inputArray[1];
 
-            if ((commandBit & SPIN_MOVED_DONE) == SPIN_MOVED_DONE)
-            {
-                moved = true;
-            }
+            //if ((commandBit & SPIN_MOVED_DONE) == SPIN_MOVED_DONE)
+            //{
+             //   moved = true;
+            //}
 
             if ((commandBit & SENSOR_DATA) == SENSOR_DATA)
             {
@@ -167,6 +192,28 @@ namespace GameController
 
                 bool hands1 = false;
                 bool hands2 = false;
+
+                if ((data & SPIN_MOVED_DONE) == SPIN_MOVED_DONE)
+                {
+                    //if (state == 2)
+                    //{
+                    //    state = 3;
+                        moved = true;
+                    //
+                    //}
+                }
+                else //if (state !=2)
+                {
+                    moved = false;
+                }
+
+                if ((data & SERVO_RECV_MCU) == SERVO_RECV_MCU)
+                {
+                    if (state == 3)
+                    {
+                        servoLaunched = true; // state = 0;
+                    }
+                }
 
                 if ((data & HANDS_P1) == HANDS_P1)
                 {
@@ -227,10 +274,10 @@ namespace GameController
                 }
             }
 
-            if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
-            {
-                gameStarted = false;
-            }
+            //if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
+            //{
+                //gameStarted = false;
+            //}
 
             //if (checkFlag)
             //{
@@ -310,6 +357,7 @@ namespace GameController
             }
 
             gameStarted = true;
+            MessageBox.Show("game time");
 
             difficultyInput = comboBoxDifficulty.Text;
 
@@ -395,15 +443,27 @@ namespace GameController
             else
                 comboBoxCOMPorts.SelectedIndex = 0;
             timer1.Start();
+            timer2.Start();
 
         }
 
         private void LaunchAndResetServo()
         {
-            sendData(LAUNCH, SERVO_LAUNCH_POS);
+            LaunchServo();
             Thread.Sleep(800);
+            ResetServo();
+        }
+
+        private void LaunchServo()
+        {
+            sendData(LAUNCH, SERVO_LAUNCH_POS);
+        }
+
+        private void ResetServo()
+        {
             sendData(LAUNCH, SERVO_RESET_POS);
         }
+
 
         private void buttonLaunch_Click(object sender, EventArgs e)
         {
@@ -421,5 +481,7 @@ namespace GameController
                 sendData(DC_STARTUP, DC_OFF);
             }
         }
+
+
     }
 }

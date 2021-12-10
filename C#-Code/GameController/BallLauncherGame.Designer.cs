@@ -61,6 +61,7 @@ namespace GameController
             this.buttonLaunch = new System.Windows.Forms.Button();
             this.checkBoxSpinup = new System.Windows.Forms.CheckBox();
             this.textBoxState = new System.Windows.Forms.TextBox();
+            this.timer2 = new System.Windows.Forms.Timer(this.components);
             this.SuspendLayout();
             // 
             // label1
@@ -327,6 +328,10 @@ namespace GameController
             this.textBoxState.Size = new System.Drawing.Size(55, 22);
             this.textBoxState.TabIndex = 28;
             // 
+            // timer2
+            // 
+            this.timer2.Tick += new System.EventHandler(this.timer2_Tick);
+            // 
             // BallLauncherGame
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -402,6 +407,7 @@ namespace GameController
         private System.Windows.Forms.Button buttonLaunch;
         private System.Windows.Forms.CheckBox checkBoxSpinup;
         private System.Windows.Forms.TextBox textBoxState;
+        private System.Windows.Forms.Timer timer2;
     }
 }
 

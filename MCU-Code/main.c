@@ -13,7 +13,6 @@ volatile unsigned int stepper_dir = 0;
 volatile unsigned int stepper_timestep = 0xB000;
 
 volatile unsigned int stepperConfirmationSent = 0;
-const unsigned char SPIN_MOVED_DONE = BIT6;
 volatile unsigned int commanded_stepper_position = 0; //in half-steps, 400 half-steps per rev
 volatile unsigned int actual_stepper_position = 0;
 
@@ -22,6 +21,8 @@ const int DEGREES_PER_REV = 360;
 const double HALFSTEP_PER_DEGREE = (double)HALFSTEPS_PER_REV / (DEGREES_PER_REV);
 const int STEPPER_GEAR_RATIO = 10;//28; //(14in * pi *25.4mm/in) / (20 teeth/rev * 2mm/tooth  )
 const int STEPPER_POSITIONS_COUNT= HALFSTEPS_PER_REV * STEPPER_GEAR_RATIO;
+
+volatile unsigned int servoLaunched = 0;
 
 /**
  * main.c
@@ -171,8 +172,9 @@ int main(void)
 
             data[0] = 255;
             data[1] = BIT5; //sensor data bit
-            data[2] = P3IN; //hands_p1, hands_p2, limswitch_1, limswitch_2
-            //hands are a bit glitchy through the AND
+            data[2] = P3IN //hands_p1, hands_p2, limswitch_1, limswitch_2
+                    + (stepperConfirmationSent * BIT4)
+                    + (servoLaunched * BIT5);
             data[3] = 0;
             data[4] = 0;
             sendArrToUART(data,5);
@@ -262,7 +264,7 @@ int main(void)
                 }
                 if (cmd & BIT3) //LAUNCH
                 {
-                    //servo
+                    servoLaunched = (dataword == 0xDFFF);
                     TB2CCR1 = 40000/20 * (1+ (float)dataword/0xFFFF);
                 }
                 if (cmd & BIT4) //DC spinup
@@ -323,7 +325,6 @@ __interrupt void USCI_A1_ISR(void)
     }
 }
 
-const unsigned char spinMoveDone[5] = {255, SPIN_MOVED_DONE, 0, 0, 0};
 //for stepping stepper
 #pragma vector = TIMER1_A0_VECTOR
 __interrupt void Timer_1A0 (void)
@@ -337,7 +338,7 @@ __interrupt void Timer_1A0 (void)
             TB0CCTL2 = OUTMOD_5;
             TB1CCTL1 = OUTMOD_5;
             TB1CCTL2 = OUTMOD_5;
-            sendArrToUART(spinMoveDone,5);
+            //sendArrToUART(spinMoveDone,5);
             stepperConfirmationSent = 1;
 
         }
