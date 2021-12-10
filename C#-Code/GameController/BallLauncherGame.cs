@@ -23,20 +23,22 @@ namespace GameController
         int state = 0;
         int startTime;
         int rotationAngle;
-        int speed;
         int ticks = 0;
         int echoTicks = 0;
         string difficultyInput;
         int difficulty;
+        int maxNumberRounds;
+        int rounds = 0;
+
         Random rand = new Random();
         int[] outputArray = new int[5];
         int[] inputArray = new int[5];
         ConcurrentQueue<Int32> dataQueue = new ConcurrentQueue<Int32>();
         ConcurrentQueue<Int32> outputQueue = new ConcurrentQueue<Int32>();
 
-        const int BIT0 = 1; //motor spin speed
-        const int BIT1 = 2; //stepper rotation angle
-        const int BIT2 = 4; //launch the ball
+        const int BIT0 = 1;
+        const int BIT1 = 2;
+        const int BIT2 = 4;
         const int BIT3 = 8;
         const int BIT4 = 16;
         const int BIT5 = 32;
@@ -48,19 +50,12 @@ namespace GameController
         const int LAUNCH = BIT3;
         const int SERVO_LAUNCH_POS = 0x0;
         const int SERVO_RESET_POS = 0xDFFF;
-        const int SERVO_RECV_MCU = BIT5;
 
         const int DC_STARTUP = BIT4;
         const int DC_ON = 0x9000;
         const int DC_OFF = 0x6969;
 
         const int SENSOR_DATA = BIT5;
-        const int SPIN_MOVED_DONE = BIT4;
-        bool servoLaunched = false;
-
-        //const int HANDSONBIT = BIT3;
-        //const int HANDSOFFBIT = BIT4;
-        //const int STOPGAMEBIT = BIT7;
 
         const int HANDS_P1 = BIT0;
         const int HANDS_P2 = BIT1;
@@ -68,15 +63,21 @@ namespace GameController
         const int LIMITSWITCH_P1 = BIT2;
         const int LIMITSWITCH_P2 = BIT3;
 
-        const int STARTBUTTON = BIT4;
+        const int SPIN_MOVED_DONE = BIT4;
+        const int SERVO_RECV_MCU = BIT5;
+        bool servoLaunched = false;
+
+        //const int STARTBUTTON = BIT4;
 
 
         const int WAITTIME = 200;
 
 
+        string player1Name;
+        string player2Name;
         int player1Score = 0;
-        bool player1Scoring = false;
         int player2Score = 0;
+        bool player1Scoring = false;
         bool player2Scoring = false;
 
         public BallLauncherGame()
@@ -97,7 +98,7 @@ namespace GameController
                 {
                     case 0: //waiting for start
                         moved = false;
-                        startTime = rand.Next(30);
+                        startTime = rand.Next(10 * (4 - difficulty)); //1-3 second delay based on difficulty
                         state = 1;
                         break;
                     case 1: //set up
@@ -138,17 +139,70 @@ namespace GameController
                         }
                         if (ticks > 8 && servoLaunched)
                         {
-                            state = 0;
-                            servoLaunched = false;
+                            NextRound();
                         }
                         break;
                     case 5: //end game
-                        sendData(DC_STARTUP, DC_OFF);
+                        EndGame();
                         break;
 
                 }
                 ticks++;
             }
+        }
+
+        private void NextRound()
+        {
+            servoLaunched = false;
+            rounds++;
+            if (rounds >= maxNumberRounds)
+            {
+                state = 5;
+            }
+            else
+            {
+                state = 0;
+            }
+        }
+
+        private void EndGame()
+        {
+            sendData(DC_STARTUP, DC_OFF);
+            gameStarted = false;
+
+            string winner;
+            int winnerScore;
+            int loserScore;
+
+            string message;
+            if (player1Score == player2Score)
+            {
+                message = $"Game tied at {player1Score}! Play again?";
+            }
+            else
+            {
+
+                if (player1Score > player2Score)
+                {
+                    winner = player1Name;
+                    winnerScore = player1Score;
+                    loserScore = player2Score;
+                }
+                else //(player1Score < player2Score)
+                {
+                    winner = player2Name;
+                    winnerScore = player2Score;
+                    loserScore = player1Score;
+                }
+
+                message = $"Player {winner} wins with a score of {winnerScore} - {loserScore}. Play again?";
+            }
+            DialogResult d = MessageBox.Show(message, "Game over!", MessageBoxButtons.YesNo);
+            if (d == DialogResult.Yes)
+            {
+                gameStarted = true;
+            }
+
         }
 
         private void timer2_Tick(object sender, EventArgs e)
@@ -180,11 +234,6 @@ namespace GameController
         private void processData()
         {
             int commandBit = inputArray[1];
-
-            //if ((commandBit & SPIN_MOVED_DONE) == SPIN_MOVED_DONE)
-            //{
-             //   moved = true;
-            //}
 
             if ((commandBit & SENSOR_DATA) == SENSOR_DATA)
             {
@@ -239,6 +288,7 @@ namespace GameController
                 indicatorLS2.BackColor = Color.Red;
                 if ((data & LIMITSWITCH_P1) != LIMITSWITCH_P1) //Limit switches are normally closed, & open when touched
                 {
+                    //player 1 ball entered
                     if (!player1Scoring)
                     {
                         //track until the switch is not pressed, so not to record the same score multiple time
@@ -247,7 +297,6 @@ namespace GameController
                     }
                     indicatorLS1.BackColor = Color.Green;
 
-                    //player 1 ball not entered
                 }
                 else
                 {
@@ -255,6 +304,7 @@ namespace GameController
                 }
                 if ((data & LIMITSWITCH_P2) != LIMITSWITCH_P2)
                 {
+                    //player 2 ball entered
                     if (!player2Scoring)
                     {
                         //track until the switch is not pressed, so not to record the same score multiple time
@@ -262,22 +312,16 @@ namespace GameController
                         player2Score++;
                     }
                     indicatorLS2.BackColor = Color.Green;
-                    //player 2 ball entered
                 }
                 else
                 {
                     player2Scoring = false;
                 }
-                if ((data & STARTBUTTON) == STARTBUTTON)
-                {
-                    //game started
-                }
+                //if ((data & STARTBUTTON) == STARTBUTTON)
+                //{
+                //    //game started
+                //}
             }
-
-            //if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
-            //{
-                //gameStarted = false;
-            //}
 
             //if (checkFlag)
             //{
@@ -341,10 +385,16 @@ namespace GameController
 
         private void buttonStart_Click(object sender, EventArgs e)
         {
+            //connect to serial if we haven't already
+            if (!open)
+            {
+                buttonConnect_Click(sender, e);
+            }
+
             //game initialization
 
-            string player1Name = textBoxPlayer1.Text;
-            string player2Name = textBoxPlayer2.Text;
+            player1Name = textBoxPlayer1.Text;
+            player2Name = textBoxPlayer2.Text;
 
             if (player1Name != "")
             {
@@ -356,11 +406,13 @@ namespace GameController
                 labelPlayer2Score.Text = player2Name + "'s Score:";
             }
 
-            gameStarted = true;
-            MessageBox.Show("game time");
 
+            if (!Int32.TryParse(textBoxNumRounds.Text, out maxNumberRounds))
+            {
+                maxNumberRounds = 5;
+                textBoxNumRounds.Text = "5";
+            }
             difficultyInput = comboBoxDifficulty.Text;
-
             switch (difficultyInput)
             {
                 case ("Easy"):
@@ -372,9 +424,14 @@ namespace GameController
                 case ("Hard"):
                     difficulty = 3;
                     break;
+                default:
+                    comboBoxDifficulty.Text = "Medium";
+                    difficulty = 2;
+                    break;
             }
 
-
+            gameStarted = true;
+            MessageBox.Show($"Game started! Best of {maxNumberRounds}, {comboBoxDifficulty.Text.ToLower()} difficulty");
         }
 
         private void sendData(int commandBit, int dataByte)
@@ -444,7 +501,6 @@ namespace GameController
                 comboBoxCOMPorts.SelectedIndex = 0;
             timer1.Start();
             timer2.Start();
-
         }
 
         private void LaunchAndResetServo()
@@ -481,7 +537,6 @@ namespace GameController
                 sendData(DC_STARTUP, DC_OFF);
             }
         }
-
 
     }
 }
