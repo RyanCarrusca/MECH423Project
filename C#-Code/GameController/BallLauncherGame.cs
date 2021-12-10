@@ -171,6 +171,7 @@ namespace GameController
             gameStarted = false;
 
             string winner;
+            string loser;
             int winnerScore;
             int loserScore;
 
@@ -185,23 +186,95 @@ namespace GameController
                 if (player1Score > player2Score)
                 {
                     winner = player1Name;
+                    loser = player2Name;
                     winnerScore = player1Score;
                     loserScore = player2Score;
                 }
                 else //(player1Score < player2Score)
                 {
                     winner = player2Name;
+                    loser = player1Name;
                     winnerScore = player2Score;
                     loserScore = player1Score;
                 }
 
                 message = $"Player {winner} wins with a score of {winnerScore} - {loserScore}. Play again?";
+                SaveToHighscoreList(winner, loser);
             }
+
             DialogResult d = MessageBox.Show(message, "Game over!", MessageBoxButtons.YesNo);
             if (d == DialogResult.Yes)
             {
                 gameStarted = true;
             }
+
+        }
+
+        void SaveToHighscoreList(string winner, string loser)
+        {
+            //Read scores from file
+            const string file = "../../highscores.csv";
+            var lines = File.ReadAllLines(file);
+            Dictionary<string, Tuple<int, int>> scores = new Dictionary<string, Tuple<int, int>>();
+            foreach (var line in lines)
+            {
+                var split = line.Split(',');
+                string player = split[0];
+                int wins = int.Parse(split[1]);
+                int losses = int.Parse(split[2]);
+                scores[player] = new Tuple<int, int>(wins, losses);
+            }
+
+            //Update scores based on current game
+            if (scores.ContainsKey(winner))
+            {
+                scores[winner] = Tuple.Create(scores[winner].Item1 + 1, scores[winner].Item2);
+            }
+            else
+            {
+                scores[winner] = Tuple.Create(1, 0);
+            }
+
+            if (scores.ContainsKey(loser))
+            {
+                scores[loser] = Tuple.Create(scores[loser].Item1, scores[loser].Item2 + 1);
+            }
+            else
+            {
+                scores[loser] = Tuple.Create(0, 1);
+            }
+
+            //Save back to file
+            using (StreamWriter w = new StreamWriter(file))
+            {
+                foreach (var item in scores)
+                {
+                    w.WriteLine($"{item.Key},{item.Value.Item1},{item.Value.Item2}");
+                }
+            }
+
+            //Sort and display high scores
+            var sortedDict = from entry in scores orderby (entry.Value.Item1 / (entry.Value.Item1 + entry.Value.Item2)) descending select entry;
+            string scoreList = "";
+            decimal winPercent;
+            foreach (var item in sortedDict)
+            {
+                string player = item.Key;
+                int wins = item.Value.Item1;
+                int losses = item.Value.Item2;
+                if (losses == 0)
+                {
+                    winPercent = 1;
+                }
+                else
+                {
+                    winPercent = (decimal)wins / (wins + losses);
+                }
+                winPercent = Math.Round(winPercent, 3);
+                scoreList += $"{item.Key}: {winPercent.ToString("0.000")} (W{wins} L{losses})\r\n";
+            }
+
+            MessageBox.Show(scoreList, "High Scores");
 
         }
 
