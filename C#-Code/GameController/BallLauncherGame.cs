@@ -84,6 +84,8 @@ namespace GameController
 
         private void timer1_Tick(object sender, EventArgs e)
         {
+            textBoxState.Text = Convert.ToString(state);
+
             int outputData;
             int i = 0;
             if (serialPort1.IsOpen)
@@ -163,9 +165,9 @@ namespace GameController
             {
                 int data = inputArray[2];
 
-
                 bool hands1 = false;
                 bool hands2 = false;
+
                 if ((data & HANDS_P1) == HANDS_P1)
                 {
                     hands1 = true;

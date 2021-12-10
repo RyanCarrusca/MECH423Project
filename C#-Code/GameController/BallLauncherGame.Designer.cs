@@ -60,6 +60,7 @@ namespace GameController
             this.indicatorHands2 = new System.Windows.Forms.Button();
             this.buttonLaunch = new System.Windows.Forms.Button();
             this.checkBoxSpinup = new System.Windows.Forms.CheckBox();
+            this.textBoxState = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // label1
@@ -319,11 +320,19 @@ namespace GameController
             this.checkBoxSpinup.UseVisualStyleBackColor = true;
             this.checkBoxSpinup.CheckedChanged += new System.EventHandler(this.checkBoxSpinup_CheckedChanged);
             // 
+            // textBoxState
+            // 
+            this.textBoxState.Location = new System.Drawing.Point(228, 303);
+            this.textBoxState.Name = "textBoxState";
+            this.textBoxState.Size = new System.Drawing.Size(55, 22);
+            this.textBoxState.TabIndex = 28;
+            // 
             // BallLauncherGame
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(304, 551);
+            this.Controls.Add(this.textBoxState);
             this.Controls.Add(this.checkBoxSpinup);
             this.Controls.Add(this.buttonLaunch);
             this.Controls.Add(this.indicatorHands2);
@@ -392,6 +401,7 @@ namespace GameController
         private System.Windows.Forms.Button indicatorHands2;
         private System.Windows.Forms.Button buttonLaunch;
         private System.Windows.Forms.CheckBox checkBoxSpinup;
+        private System.Windows.Forms.TextBox textBoxState;
     }
 }
 
