@@ -46,10 +46,15 @@ namespace GameController
         const int DC_SPIN_SPEED = BIT0;
         const int SET_ANGLE = BIT2;
         const int LAUNCH = BIT3;
+        const int SERVO_LAUNCH_POS = 0x0;
+        const int SERVO_RESET_POS = 0xDFFF;
 
+        const int DC_STARTUP = BIT4;
+        const int DC_ON = 0x9000;
+        const int DC_OFF = 0x6969;
 
-        const int SPIN_MOVED_DONE = BIT4;
         const int SENSOR_DATA = BIT5;
+        const int SPIN_MOVED_DONE = BIT6;
 
         //const int HANDSONBIT = BIT3;
         //const int HANDSOFFBIT = BIT4;
@@ -65,7 +70,12 @@ namespace GameController
 
 
         const int WAITTIME = 200;
-        
+
+
+        int player1Score = 0;
+        bool player1Scoring = false;
+        int player2Score = 0;
+        bool player2Scoring = false;
 
         public BallLauncherGame()
         {
@@ -99,34 +109,41 @@ namespace GameController
 
             if (gameStarted == true)
             {
+                textBoxPlayer1Score.Text = Convert.ToString(player1Score);
+                textBoxPlayer2Score.Text = Convert.ToString(player2Score);
+
                 switch (state)
                 {
                     case 0: //waiting for start
                         moved = false;
-                        startTime = rand.Next(200);
+                        startTime = rand.Next(1000);
                         state = 1;
                         break;
                     case 1: //set up
-                        rotationAngle = rand.Next(360);
-                        speed = rand.Next(10000, 65535);
+                        rotationAngle = (rand.Next(60) - 30 + 360 )% 360; //Angle between -30 and 30
                         sendData(SET_ANGLE, rotationAngle);
-                        sendData(DC_SPIN_SPEED, speed);
+                        sendData(DC_STARTUP, DC_ON);
                         state = 2;
                         break;
                     case 2: //done moving
-                        if (moved) 
+                        if (moved)
                         {
                             ticks = 0;
-                            state = 3; 
+                            state = 3;
                         }
                         break;
                     case 3: //launch 
                         if ((ticks > startTime) && handsOn)
                         {
-                            sendData(LAUNCH, speed);
+                            LaunchAndResetServo();
                         }
+                        ticks = 0;
                         state = 0;
                         break;
+                    case 4: //end game
+                        sendData(DC_STARTUP, DC_OFF);
+                        break;
+
                 }
                 ticks++;
             }
@@ -173,28 +190,40 @@ namespace GameController
                 indicatorLS2.BackColor = Color.Red;
                 if ((data & LIMITSWITCH_P1) != LIMITSWITCH_P1) //Limit switches are normally closed, & open when touched
                 {
+                    if (!player1Scoring)
+                    {
+                        //track until the switch is not pressed, so not to record the same score multiple time
+                        player1Scoring = true;
+                        player1Score++;
+                    }
                     indicatorLS1.BackColor = Color.Green;
+
                     //player 1 ball not entered
                 }
-                if ((data & LIMITSWITCH_P2) == LIMITSWITCH_P2)
+                else
                 {
+                    player1Scoring = false;
+                }
+                if ((data & LIMITSWITCH_P2) != LIMITSWITCH_P2)
+                {
+                    if (!player2Scoring)
+                    {
+                        //track until the switch is not pressed, so not to record the same score multiple time
+                        player2Scoring = true;
+                        player2Score++;
+                    }
                     indicatorLS2.BackColor = Color.Green;
                     //player 2 ball entered
+                }
+                else
+                {
+                    player2Scoring = false;
                 }
                 if ((data & STARTBUTTON) == STARTBUTTON)
                 {
                     //game started
                 }
             }
-            //if ((commandBit & HANDSONBIT) == HANDSONBIT)
-            //{
-            //    handsOn = true;
-            //}
-            //
-            //if ((commandBit & HANDSOFFBIT) == HANDSOFFBIT)
-            //{
-            //    handsOn = false ;
-            //}
 
             if ((commandBit & STOPGAMEBIT) == STOPGAMEBIT)
             {
@@ -203,7 +232,7 @@ namespace GameController
 
             //if (checkFlag)
             //{
-                //echoProcess();
+            //echoProcess();
             //}
         }
 
@@ -277,12 +306,6 @@ namespace GameController
             {
                 labelPlayer2Score.Text = player2Name + "'s Score:";
             }
-
-            int player1Score = 0;
-            int player2Score = 0;
-
-            textBoxPlayer1Score.Text = Convert.ToString(player1Score);
-            textBoxPlayer2Score.Text = Convert.ToString(player2Score);
 
             gameStarted = true;
 
@@ -371,6 +394,30 @@ namespace GameController
                 comboBoxCOMPorts.SelectedIndex = 0;
             timer1.Start();
 
+        }
+
+        private void LaunchAndResetServo()
+        {
+            sendData(LAUNCH, SERVO_LAUNCH_POS);
+            Thread.Sleep(800);
+            sendData(LAUNCH, SERVO_RESET_POS);
+        }
+
+        private void buttonLaunch_Click(object sender, EventArgs e)
+        {
+            LaunchAndResetServo();
+        }
+
+        private void checkBoxSpinup_CheckedChanged(object sender, EventArgs e)
+        {
+            if (checkBoxSpinup.Checked)
+            {
+                sendData(DC_STARTUP, DC_ON);
+            }
+            else
+            {
+                sendData(DC_STARTUP, DC_OFF);
+            }
         }
     }
 }

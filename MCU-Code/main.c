@@ -10,12 +10,18 @@ volatile unsigned char cmd, db1, db2, esc;
 
 volatile unsigned char stepper_state = 0;
 volatile unsigned int stepper_dir = 0;
-volatile unsigned int stepper_timestep = 0x8000;
+volatile unsigned int stepper_timestep = 0xB000;
 
+volatile unsigned int stepperConfirmationSent = 0;
+const unsigned char SPIN_MOVED_DONE = BIT6;
 volatile unsigned int commanded_stepper_position = 0; //in half-steps, 400 half-steps per rev
 volatile unsigned int actual_stepper_position = 0;
 
-const double CONVERT_DEG_TO_HALFSTEP = 400.0/360.0;
+const int HALFSTEPS_PER_REV = 400;
+const int DEGREES_PER_REV = 360;
+const double HALFSTEP_PER_DEGREE = (double)HALFSTEPS_PER_REV / (DEGREES_PER_REV);
+const int STEPPER_GEAR_RATIO = 10;//28; //(14in * pi *25.4mm/in) / (20 teeth/rev * 2mm/tooth  )
+const int STEPPER_POSITIONS_COUNT= HALFSTEPS_PER_REV * STEPPER_GEAR_RATIO;
 
 /**
  * main.c
@@ -56,13 +62,23 @@ int main(void)
     //Set up timer B
     TB2CTL |= TBSSEL__SMCLK;    //SMCLK source
     TB2CTL |= CNTL__16;         //16 bit clock - 122.07 Hz
+    TB2CTL |= ID__4; //for servo
     TB2CTL |= MC__UP;           //up mode
     TB2CTL |= TBCLR;            //reset clock
-    TB2CCR0 = 0xFFFF;           //TB2CL0
+    //TB2CCR0 = 0xFFFF;           //TB2CL0
+    //TB2CCR1 = 0x1FFF;
+
+    /////////
+    //Servo//
+    /////////
+    //50hz (20ms) period, range of 1-2ms on for 0-90 degree rotation
+    TB2CCR0 = 40000;
+    TB2CCR1 = 40000/20;
 
     //Set up timer B2.1 with an initial duty cycle
-    TB2CCR1 = 0x1FFF;       //TB2CL1
-    TB2CCTL1 |= OUTMOD_3;   // PWM set/reset
+
+    //TB2CCTL1 |= OUTMOD_3;   // PWM set/reset
+    TB2CCTL1 |= OUTMOD_7;   // PWM set/reset
 
     //P2.1 - PWMA
     P2DIR |= BIT1;      //P2.1 output
@@ -127,22 +143,17 @@ int main(void)
     P3DIR &= ~(BIT0 + BIT1 + BIT2 + BIT3);
     //inputs hands_p1, hands_p2, LS_p1, LS_p2
 
-
     //Enable pulldown resistor - switches to be placed btwn VCC & input pin
     P3REN |= (BIT0 + BIT1 + BIT2 + BIT3);
     P3OUT &= ~(BIT0 + BIT1 + BIT2 + BIT3);
 
+    ////////////////
+    //Big DC motor//
+    ////////////////
+    P1DIR |= BIT3;
+    P1OUT |= BIT3;
 
-    /*
-    //Set P3.0 to get interrupted from a rising edge (i.e. an interrupt occurs when the user lets go of the button).
-    P3IES &= ~BIT0;
-    // Enable local and global interrupts.
-    P3IE |= BIT0;
-    */
-    //Configure PJ.2 as an output (this is connected via wire to LED4)
-    PJDIR |= BIT2;
-    PJSEL0 &= ~( BIT2);
-    PJSEL1 &= ~( BIT2);
+
 
     initializeBuffer(&buf);
     // global interrupt enable
@@ -213,7 +224,7 @@ int main(void)
 
                 dataword = (db1 << 8) + db2;
 
-                if (cmd & BIT0)     // DC motor CCW
+                /*if (cmd & BIT0)     // DC motor CCW
                 {
                     TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
                     P3OUT |= BIT6;
@@ -224,22 +235,23 @@ int main(void)
                     TB2CCR1 = 0xFFFF - dataword; //higher value -> faster
                     P3OUT &= ~BIT6;
                     P3OUT |= BIT7;
-                }
-                if (cmd & BIT1)     //stepper CCW
+                }*/
+                /*if (cmd & BIT1)     //stepper CCW
                 {
                     stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
                     stepper_dir = 0;
+
                 }
                 else                //stepper CW
                 {
                     stepper_timestep = 0xFFFF - (dataword & 0xEFFF); //higher value -> faster
                     stepper_dir = 1;
-                }
+                }*/
                 if (cmd & BIT2)     //move to given position
                 {
-                    commanded_stepper_position = dataword * CONVERT_DEG_TO_HALFSTEP;
+                    commanded_stepper_position = dataword * HALFSTEP_PER_DEGREE * STEPPER_GEAR_RATIO; //dataword in degrees of big gear
                     //0 to 359 degrees in standard position
-                    if ((actual_stepper_position - commanded_stepper_position + 400) % 400 < 200)
+                    if ((actual_stepper_position - commanded_stepper_position + STEPPER_POSITIONS_COUNT ) % STEPPER_POSITIONS_COUNT < STEPPER_POSITIONS_COUNT/2)
                     {
                         stepper_dir = 1; //CW
                     }
@@ -248,33 +260,29 @@ int main(void)
                         stepper_dir = 0; //CCW
                     }
                 }
-                /*
-                if (cmd & BIT2)     //single step, stops timer
+                if (cmd & BIT3) //LAUNCH
                 {
-                    TA1CTL &= ~MC_2;
-                    rotate_stepper(stepper_dir);
+                    //servo
+                    TB2CCR1 = 40000/20 * (1+ (float)dataword/0xFFFF);
                 }
-                if (cmd & BIT3)     //resume continuous
+                if (cmd & BIT4) //DC spinup
                 {
-                    TA1CTL |= MC_2;
-                }*/
+                    if (dataword > 0x7FFF)
+                    {
+                        P1OUT |= BIT3; //pin is out high
+                    }
+                    else
+                    {
+                        P1OUT &= ~BIT3;//pin is out low
+                    }
+                }
+
                 packet_flag = 0;
             }
             continue;
         }
     }
 }
-
-/*
-//interrupt service routine to toggle LED8 when P3.0 provides a rising edge.
-#pragma vector = PORT3_VECTOR
-__interrupt void S1_interrupt (void)
-{
-    //check which ifg was raised P3IV
-    PJOUT ^= BIT2;
-    P3IFG &= ~BIT0;
-}*/
-
 
 
 void sendToUART(unsigned char byte)
@@ -315,6 +323,7 @@ __interrupt void USCI_A1_ISR(void)
     }
 }
 
+const unsigned char spinMoveDone[5] = {255, SPIN_MOVED_DONE, 0, 0, 0};
 //for stepping stepper
 #pragma vector = TIMER1_A0_VECTOR
 __interrupt void Timer_1A0 (void)
@@ -322,13 +331,25 @@ __interrupt void Timer_1A0 (void)
     timerUART_flag = 1;
     if (commanded_stepper_position == actual_stepper_position)
     {
+        if (!stepperConfirmationSent)
+        {
+            TB0CCTL1 = OUTMOD_5;
+            TB0CCTL2 = OUTMOD_5;
+            TB1CCTL1 = OUTMOD_5;
+            TB1CCTL2 = OUTMOD_5;
+            sendArrToUART(spinMoveDone,5);
+            stepperConfirmationSent = 1;
+
+        }
         return;
     }
+    stepperConfirmationSent = 0;
+
     if (stepper_dir == 1)//CW
     {
         if (actual_stepper_position == 0)
         {
-            actual_stepper_position = 399;
+            actual_stepper_position = STEPPER_POSITIONS_COUNT - 1;
         }
         else
         {
@@ -337,7 +358,7 @@ __interrupt void Timer_1A0 (void)
     }
     else //stepper_dir = 0 -> CCW
     {
-        if (actual_stepper_position == 399)
+        if (actual_stepper_position == STEPPER_POSITIONS_COUNT - 1)
         {
             actual_stepper_position = 0;
         }

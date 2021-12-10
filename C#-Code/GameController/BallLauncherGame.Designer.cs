@@ -58,6 +58,8 @@ namespace GameController
             this.indicatorLS1 = new System.Windows.Forms.Button();
             this.indicatorLS2 = new System.Windows.Forms.Button();
             this.indicatorHands2 = new System.Windows.Forms.Button();
+            this.buttonLaunch = new System.Windows.Forms.Button();
+            this.checkBoxSpinup = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // label1
@@ -296,11 +298,34 @@ namespace GameController
             this.indicatorHands2.Text = "Hands";
             this.indicatorHands2.UseVisualStyleBackColor = true;
             // 
+            // buttonLaunch
+            // 
+            this.buttonLaunch.Location = new System.Drawing.Point(16, 518);
+            this.buttonLaunch.Name = "buttonLaunch";
+            this.buttonLaunch.Size = new System.Drawing.Size(75, 23);
+            this.buttonLaunch.TabIndex = 26;
+            this.buttonLaunch.Text = "Launch";
+            this.buttonLaunch.UseVisualStyleBackColor = true;
+            this.buttonLaunch.Click += new System.EventHandler(this.buttonLaunch_Click);
+            // 
+            // checkBoxSpinup
+            // 
+            this.checkBoxSpinup.AutoSize = true;
+            this.checkBoxSpinup.Location = new System.Drawing.Point(97, 520);
+            this.checkBoxSpinup.Name = "checkBoxSpinup";
+            this.checkBoxSpinup.Size = new System.Drawing.Size(85, 21);
+            this.checkBoxSpinup.TabIndex = 27;
+            this.checkBoxSpinup.Text = "Spinning";
+            this.checkBoxSpinup.UseVisualStyleBackColor = true;
+            this.checkBoxSpinup.CheckedChanged += new System.EventHandler(this.checkBoxSpinup_CheckedChanged);
+            // 
             // BallLauncherGame
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(304, 524);
+            this.ClientSize = new System.Drawing.Size(304, 551);
+            this.Controls.Add(this.checkBoxSpinup);
+            this.Controls.Add(this.buttonLaunch);
             this.Controls.Add(this.indicatorHands2);
             this.Controls.Add(this.indicatorLS2);
             this.Controls.Add(this.indicatorLS1);
@@ -365,6 +390,8 @@ namespace GameController
         private System.Windows.Forms.Button indicatorLS1;
         private System.Windows.Forms.Button indicatorLS2;
         private System.Windows.Forms.Button indicatorHands2;
+        private System.Windows.Forms.Button buttonLaunch;
+        private System.Windows.Forms.CheckBox checkBoxSpinup;
     }
 }
 
