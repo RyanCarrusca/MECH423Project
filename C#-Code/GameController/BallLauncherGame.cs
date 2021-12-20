@@ -103,6 +103,10 @@ namespace GameController
                         break;
                     case 1: //set up
                         rotationAngle = (rand.Next(60) - 30 + 360 )% 360; //Angle between -30 and 30
+                        //int[] rotationLookup = { 5, 7, 10, 15, 20, 25, 30, 355, 352, 350, 345, 340, 335, 330 };
+                        //rotationAngle = rotationLookup[rand.Next(14)];
+                        //rotationAngle = ((rand.Next(15,30)*(rand.Next(0,1)*2-1)) + 360) % 360; //Angle between -30,-15 and 15,30
+                        
                         sendData(SET_ANGLE, rotationAngle);
                         sendData(DC_STARTUP, DC_ON);
                         state = 2;
@@ -140,10 +144,15 @@ namespace GameController
                         if (ticks > 8 && servoLaunched)
                         {
                             NextRound();
+                            ticks = 0;
                         }
                         break;
                     case 5: //end game
-                        EndGame();
+                        // if (player1Score + player2Score >= maxNumberRounds)
+                        if (ticks > 50)
+                        {
+                            EndGame();
+                        }
                         break;
 
                 }
@@ -169,9 +178,10 @@ namespace GameController
         {
             sendData(DC_STARTUP, DC_OFF);
             gameStarted = false;
+            bool tied = false;
 
-            string winner;
-            string loser;
+            string winner = "";
+            string loser = "";
             int winnerScore;
             int loserScore;
 
@@ -179,6 +189,7 @@ namespace GameController
             if (player1Score == player2Score)
             {
                 message = $"Game tied at {player1Score}! Play again?";
+                tied = true;
             }
             else
             {
@@ -199,12 +210,19 @@ namespace GameController
                 }
 
                 message = $"Player {winner} wins with a score of {winnerScore} - {loserScore}. Play again?";
-                SaveToHighscoreList(winner, loser);
             }
+            player1Score = 0;
+            player2Score = 0;
+            rounds = 0;
 
             DialogResult d = MessageBox.Show(message, "Game over!", MessageBoxButtons.YesNo);
+            if (!tied)
+            {
+                SaveToHighscoreList(winner, loser);
+            }
             if (d == DialogResult.Yes)
             {
+                state = 0;
                 gameStarted = true;
             }
 
@@ -465,6 +483,9 @@ namespace GameController
             }
 
             //game initialization
+
+            player1Score = 0;
+            player2Score = 0;
 
             player1Name = textBoxPlayer1.Text;
             player2Name = textBoxPlayer2.Text;
